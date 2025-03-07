@@ -3,6 +3,10 @@ from pygame.locals import *
 import time
 import math
 import random
+import openai
+
+#API-Schlüssel für openai
+openai.api_key = ""
 
 #Pygame initialisieren
 pygame.init()
@@ -43,13 +47,13 @@ class Move():
 
 class Pokemon(pygame.sprite.Sprite):
     #Pokemon-Objekt erstellen
-    def __init__(self, name, level, type_1, hp, attack, defense, speed, moves, x, y):
+    def __init__(self, name, level, type, hp, attack, defense, speed, moves, x, y, side="front"):
         
         pygame.sprite.Sprite.__init__(self) #Sprite-Klasse initialisieren
         
         self.name = name #Namen des Pokemons
         self.level = level #Level des Pokemons
-        self.types = [type_1] #Typ des Pokemons
+        self.types = type #Typ des Pokemons
         
         #Position des Pokemons auf dem Bildschirm setzen
         self.x = x
@@ -73,6 +77,10 @@ class Pokemon(pygame.sprite.Sprite):
         self.size = 150
         self.image = pygame.Surface((self.size, self.size)) #Oberfläche für das Sprite erstellen
         self.image.fill(grey)  #Sprite mit grauer Farbe als Platzhalter gefüllt
+        self.rect = self.image.get_rect(topleft=(self.x, self.y))
+
+        #Sprite laden
+        self.set_sprite('front')
 
     #Angriff auf ein anderes Pokemon, other = das Pokemon was angegriffen wird, move = verwendete Attacke
     def perform_attack(self, other, move):
@@ -123,77 +131,104 @@ class Pokemon(pygame.sprite.Sprite):
                 
             #Healmöglichkeiten um 1 reduzieren
             self.num_potions -= 1
-        
+           
+    # Methode zum Setzen des Pokémon-Sprites
     def set_sprite(self, side):
-        # Platzhalter für eine Funktion, die das Sprite des Pokémon setzt
-        pass  # In einem echten Spiel würde hier das Sprite gewechselt werden
+        try:
+            self.image = pygame.image.load(f"images/{self.name.lower()}_{side}.png")
+            self.image = pygame.transform.scale(self.image, (self.size, self.size))
+        except pygame.error:
+            print(f"Fehler: Bild für {self.name} ({side}) nicht gefunden!")
     
+    #Zeichnet das Pokémon-Sprite auf dem Bildschirm    
     def draw(self, alpha=255):
-        
-        sprite = self.image.copy()
+            
+        #Erstellt eine Kopie des Pokémon-Sprites, um das Originalbild nicht zu verändern
+        sprite = pygame.transform.scale(self.image, (self.size, self.size))
+
+        # Erstellt eine Transparenzfarbe mit dem gegebenen Alpha-Wert
         transparency = (255, 255, 255, alpha)
-        sprite.fill(transparency, None, pygame.BLEND_RGBA_MULT)
+
+        # Zeichnet das Sprite auf das Spielfeld an der gespeicherten Position
         game.blit(sprite, (self.x, self.y))
         
+    #Zeichnet die Lebensanzeige (HP-Balken) des Pokémon auf den Bildschirm.
     def draw_hp(self):
-        
-        # display the health bar
-        bar_scale = 200 // self.max_hp
+        #Berechnet die Skalierung des HP-Balkens basierend auf der maximalen HP. Die gesamte Breite des Balkens beträgt 200 Pixel
+        bar_scale = 200 // self.max_hp  
+
+        #Zeichnet die gesamte HP-Leiste in Rot (verlorene HP)
         for i in range(self.max_hp):
-            bar = (self.hp_x + bar_scale * i, self.hp_y, bar_scale, 20)
-            pygame.draw.rect(game, red, bar)
-            
+            bar = (self.hp_x + bar_scale * i, self.hp_y, bar_scale, 20)  
+            pygame.draw.rect(game, red, bar)  
+
+        #Zeichnet die verbleibenden HP in Grün (über die rote Leiste)
         for i in range(self.current_hp):
-            bar = (self.hp_x + bar_scale * i, self.hp_y, bar_scale, 20)
-            pygame.draw.rect(game, green, bar)
-            
-        # display "HP" text
-        font = pygame.font.Font(pygame.font.get_default_font(), 16)
-        text = font.render(f'HP: {self.current_hp} / {self.max_hp}', True, black)
-        text_rect = text.get_rect()
-        text_rect.x = self.hp_x
-        text_rect.y = self.hp_y + 30
+            bar = (self.hp_x + bar_scale * i, self.hp_y, bar_scale, 20)  
+            pygame.draw.rect(game, green, bar)  
+
+        #Erstellt die HP-Anzeige als Text (z. B. "HP: 35 / 50")
+        font = pygame.font.Font(pygame.font.get_default_font(), 16)  
+        text = font.render(f'HP: {self.current_hp} / {self.max_hp}', True, black)  
+
+        #Positioniert den Text unterhalb des Balkens
+        text_rect = text.get_rect()  
+        text_rect.x = self.hp_x  
+        text_rect.y = self.hp_y + 30  
+
+        #Zeichnet den Text auf das Spielfeld
         game.blit(text, text_rect)
         
+    #Gibt das Rechteck des Pokemon zurück    
     def get_rect(self):
         
         return Rect(self.x, self.y, self.image.get_width(), self.image.get_height())
 
+#Textbox mit Nachricht am unteren Bildschirmrand
 def display_message(message):
     
-    # draw a white box with black border
+    #Weiße Box als Hintergrund wird gezeichnet
     pygame.draw.rect(game, white, (10, 350, 480, 140))
+    #Schwarze Umrandung für die Box
     pygame.draw.rect(game, black, (10, 350, 480, 140), 3)
     
-    # display the message
+    #Schirftart für den Text
     font = pygame.font.Font(pygame.font.get_default_font(), 20)
+    #Nachrichtentext in Schwarz gerendert
     text = font.render(message, True, black)
+    #Position des Textes in der Box
     text_rect = text.get_rect()
     text_rect.x = 30
     text_rect.y = 410
+    #Zeichnet den Text auf den Bildschirm
     game.blit(text, text_rect)
-    
+    #Bildschirmaktualisierung
     pygame.display.update()
 
+#Button mit Textlabel
 def create_button(width, height, left, top, text_cx, text_cy, label):
     
-    # position of the mouse cursor
+    #Aktuelle Position des Mauszeigers speichern
     mouse_cursor = pygame.mouse.get_pos()
     
+    #Rechteck für den Button an der angegebenen Position
     button = Rect(left, top, width, height)
     
-    # highlight the button if mouse is pointing to it
+    #Überprüfen ob der Mauszeiger über dem Button ist
     if button.collidepoint(mouse_cursor):
-        pygame.draw.rect(game, gold, button)
+        pygame.draw.rect(game, gold, button) #Button wird gold
     else:
         pygame.draw.rect(game, white, button)
         
-    # add the label to the button
+    #Schriftart für Button-Text
     font = pygame.font.Font(pygame.font.get_default_font(), 16)
+    #Button in Schwarz rendern
     text = font.render(f'{label}', True, black)
+    #Text zentrieren im Button
     text_rect = text.get_rect(center=(text_cx, text_cy))
+    #Text auf den Button zeichnen
     game.blit(text, text_rect)
-    
+    #Rückgabe des Buttons
     return button
         
 # create the starter pokemons with hardcoded stats
@@ -330,16 +365,18 @@ while game_status != 'quit':
         pygame.display.update()
         
         # reposition the pokemons
-        player_pokemon.x = -50
-        player_pokemon.y = 100
-        rival_pokemon.x = 250
-        rival_pokemon.y = -50
+        player_pokemon.x = 25
+        player_pokemon.y = 150
+        rival_pokemon.x = 275
+        rival_pokemon.y = 0
         
         # resize the sprites
-        player_pokemon.size = 300
-        rival_pokemon.size = 300
-        player_pokemon.set_sprite('back_default')
-        rival_pokemon.set_sprite('front_default')
+        player_pokemon.size = 200
+        rival_pokemon.size = 200
+
+
+        player_pokemon.set_sprite('front')
+        rival_pokemon.set_sprite('front')
         
         game_status = 'start battle'
         
