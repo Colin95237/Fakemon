@@ -82,6 +82,11 @@ class Pokemon(pygame.sprite.Sprite):
         #Sprite laden
         self.set_sprite('front')
 
+    # Methode zum Zurücksetzen von HP und Tränken
+    def reset(self):
+        self.current_hp = self.max_hp  # Setzt die HP auf den Maximalwert zurück
+        self.num_potions = 3  # Setzt die Tränke auf den Anfangswert zurück
+
     #Angriff auf ein anderes Pokemon, other = das Pokemon was angegriffen wird, move = verwendete Attacke
     def perform_attack(self, other, move):
 
@@ -102,7 +107,7 @@ class Pokemon(pygame.sprite.Sprite):
             "normal": {"strong": None, "weak": None}  # Normal hat keine Vor-/Nachteile
         }
 
-         # Falls der Move einen Typ hat, der in der Liste ist
+        #Falls der Move einen Typ hat, der in der Liste ist
         if move.type in type_effectiveness:
             effectiveness = type_effectiveness[move.type]
 
@@ -159,7 +164,7 @@ class Pokemon(pygame.sprite.Sprite):
     
     #Zeichnet das Pokémon-Sprite auf dem Bildschirm    
     def draw(self, alpha=255):
-            
+
         #Erstellt eine Kopie des Pokémon-Sprites, um das Originalbild nicht zu verändern
         sprite = pygame.transform.scale(self.image, (self.size, self.size))
 
@@ -171,6 +176,13 @@ class Pokemon(pygame.sprite.Sprite):
         
     #Zeichnet die Lebensanzeige (HP-Balken) des Pokémon auf den Bildschirm.
     def draw_hp(self):
+
+        #Lebensbalkenposition setzen
+        player_pokemon.hp_x = 275
+        player_pokemon.hp_y = 250
+        rival_pokemon.hp_x = 50
+        rival_pokemon.hp_y = 50
+
         #Berechnet die Skalierung des HP-Balkens basierend auf der maximalen HP. Die gesamte Breite des Balkens beträgt 200 Pixel
         bar_scale = 200 // self.max_hp  
 
@@ -223,48 +235,125 @@ def display_message(message):
     pygame.display.update()
 
 #Button mit Textlabel
-def create_button(width, height, left, top, text_cx, text_cy, label):
-    
-    #Aktuelle Position des Mauszeigers speichern
+def create_button(width, height, left, top, label):
+    # Mausposition abrufen
     mouse_cursor = pygame.mouse.get_pos()
     
-    #Rechteck für den Button an der angegebenen Position
+    # Button-Rechteck erstellen
     button = Rect(left, top, width, height)
     
-    #Überprüfen ob der Mauszeiger über dem Button ist
+    # Button-Farbe je nach Hover-Zustand setzen
     if button.collidepoint(mouse_cursor):
-        pygame.draw.rect(game, gold, button) #Button wird gold
+        pygame.draw.rect(game, gold, button)
     else:
         pygame.draw.rect(game, white, button)
-        
-    #Schriftart für Button-Text
-    font = pygame.font.Font(pygame.font.get_default_font(), 16)
-    #Button in Schwarz rendern
-    text = font.render(f'{label}', True, black)
-    #Text zentrieren im Button
-    text_rect = text.get_rect(center=(text_cx, text_cy))
-    #Text auf den Button zeichnen
+    
+    # Schriftart für den Button-Text
+    font = pygame.font.Font(pygame.font.get_default_font(), 18)  # Etwas größere Schrift
+    
+    # Button-Text rendern
+    text = font.render(label, True, black)
+    
+    # Text zentriert im Button platzieren
+    text_rect = text.get_rect(center=(left + width // 2, top + height // 2))
+    
+    # Text auf den Button zeichnen
     game.blit(text, text_rect)
-    #Rückgabe des Buttons
+    
+    # Button zurückgeben
     return button
+
+# Logik für den Wechsel der Pokémon
+def switch_pokemon(team, current_pokemon):
+    # Finde das nächste Pokémon im Team
+    next_pokemon = team[(team.index(current_pokemon) + 1) % len(team)]
+    return next_pokemon
+
+# Beim Switch Pokémon richtig setzen
+def handle_switch():
+    global player_pokemon, rival_pokemon
         
-# create the starter pokemons with hardcoded stats
+    player_pokemon = switch_pokemon(player_team, player_pokemon)
+        
+    # Stellen Sie sicher, dass die neue Position und das Sprite des Pokémon korrekt sind
+    player_pokemon.x = 25
+    player_pokemon.y = 150
+    rival_pokemon.x = 275
+    rival_pokemon.y = 0
+        
+    # Rects aktualisieren
+    player_pokemon.rect.topleft = (player_pokemon.x, player_pokemon.y)
+    rival_pokemon.rect.topleft = (rival_pokemon.x, rival_pokemon.y)
+
+    # Grösse der Sprites anpassen
+    player_pokemon.size = 200
+    rival_pokemon.size = 200
+
+    # Sprites setzen
+    player_pokemon.set_sprite('front')
+    rival_pokemon.set_sprite('front')
+
+    # Lebensbalken nach dem Wechsel zeichnen
+    player_pokemon.draw_hp()
+    rival_pokemon.draw_hp()
+
+    pygame.display.update()    
+
+def initialize_teams():
+    global player_team, rival_team, player_pokemon, rival_pokemon
+    # Erstelle neue Pokemon-Objekte (basierend auf den ursprünglichen Werten)
+    player_bulbasaur = Pokemon('Bulbasaur', 30, 'grass', 45, 49, 49, 45, bulbasaur_moves, 25, 150)
+    player_charmander = Pokemon('Charmander', 30, 'fire', 39, 52, 43, 65, charmander_moves, 175, 150)
+    player_squirtle = Pokemon('Squirtle', 30, 'water', 44, 48, 65, 43, squirtle_moves, 325, 150)
+    enemy_bulbasaur = Pokemon('Bulbasaur', 30, 'grass', 45, 49, 49, 45, bulbasaur_moves, 25, 150)
+    enemy_charmander = Pokemon('Charmander', 30, 'fire', 39, 52, 43, 65, charmander_moves, 175, 150)
+    enemy_squirtle = Pokemon('Squirtle', 30, 'water', 44, 48, 65, 43, squirtle_moves, 325, 150)
+
+    player_team = [player_bulbasaur, player_charmander, player_squirtle]
+    rival_team = [enemy_charmander, enemy_squirtle, enemy_bulbasaur]
+
+    player_pokemon = player_team[0]
+    rival_pokemon = rival_team[0]
+    
+    # Setze die Lebensbalkenpositionen
+    player_pokemon.hp_x = 275
+    player_pokemon.hp_y = 250
+    rival_pokemon.hp_x = 50
+    rival_pokemon.hp_y = 50
+
+
+#Pokemon-Attacken-Daten
 bulbasaur_moves = [Move("Tackle", 40, "normal"), Move("Vine Whip", 45, "grass")]
 charmander_moves = [Move("Tackle", 40, "normal"), Move("Ember", 40, "fire")]
 squirtle_moves = [Move("Tackle", 40, "normal"), Move("Water Gun", 40, "water")]
 
-bulbasaur = Pokemon('Bulbasaur', 30, 'grass', 45, 49, 49, 45, bulbasaur_moves, 25, 150)
-charmander = Pokemon('Charmander', 30, 'fire', 39, 52, 43, 65, charmander_moves, 175, 150)
-squirtle = Pokemon('Squirtle', 30, 'water', 44, 48, 65, 43, squirtle_moves, 325, 150)
+#Pokemon-Data
+player_bulbasaur = Pokemon('Bulbasaur', 30, 'grass', 45, 49, 49, 45, bulbasaur_moves, 25, 150)
+player_charmander = Pokemon('Charmander', 30, 'fire', 39, 52, 43, 65, charmander_moves, 175, 150)
+player_squirtle = Pokemon('Squirtle', 30, 'water', 44, 48, 65, 43, squirtle_moves, 325, 150)
 
-pokemons = [bulbasaur, charmander, squirtle]
+enemy_bulbasaur = Pokemon('Bulbasaur', 30, 'grass', 45, 49, 49, 45, bulbasaur_moves, 25, 150)
+enemy_charmander = Pokemon('Charmander', 30, 'fire', 39, 52, 43, 65, charmander_moves, 175, 150)
+enemy_squirtle = Pokemon('Squirtle', 30, 'water', 44, 48, 65, 43, squirtle_moves, 325, 150)
 
 # the player's and rival's selected pokemon
-player_pokemon = None
-rival_pokemon = None
+player_team = [player_bulbasaur, player_charmander, player_squirtle]
+rival_team = [enemy_charmander, enemy_squirtle, enemy_bulbasaur]
+
+player_pokemon = player_team[0]
+rival_pokemon = rival_team[0]
 
 #Hauptspielschleife
-game_status = 'select pokemon' #Pokemon auswählen
+#Rivalen-Pokemonlevel herabsetzen um das Spiel zu vereinfachen
+rival_pokemon.level = int(rival_pokemon.level * .75)
+                        
+#Lebensbalkenposition setzen
+player_pokemon.hp_x = 275
+player_pokemon.hp_y = 250
+rival_pokemon.hp_x = 50
+rival_pokemon.hp_y = 50
+
+game_status = 'prebattle' #Pokemon auswählen
 while game_status != 'quit': #Läuft bis der Spieler das Spiel beendet
     
     for event in pygame.event.get(): #Durch alle Pygame-Events gehen
@@ -273,16 +362,15 @@ while game_status != 'quit': #Läuft bis der Spieler das Spiel beendet
             
         #Tastendruckevent erkennen
         if event.type == KEYDOWN:
-            
             #Spiel neustarten
             if event.key == K_y:
-                #Pokemon zurücksetzen
-                bulbasaur = Pokemon('Bulbasaur', 30, 'grass', 45, 49, 49, 45, bulbasaur_moves, 25, 150)
-                charmander = Pokemon('Charmander', 30, 'fire', 39, 52, 43, 65, charmander_moves, 175, 150)
-                squirtle = Pokemon('Squirtle', 30, 'water', 44, 48, 65, 43, squirtle_moves, 325, 150)
-                pokemons = [bulbasaur, charmander, squirtle]
-                game_status = 'select pokemon' #Zurück zur Auswahl
+                initialize_teams()
+                game_status = 'prebattle' #Zurück zur Auswahl
                 
+                # Zurücksetzen der Pokémon (volle HP und Tränke zurücksetzen)
+                player_pokemon.reset()
+                rival_pokemon.reset()
+
             #Spiel beenden
             elif event.key == K_n:
                 game_status = 'quit'
@@ -292,38 +380,14 @@ while game_status != 'quit': #Läuft bis der Spieler das Spiel beendet
             #Position des Mausklicks speichern
             mouse_click = event.pos
             
-            #Wenn der Spieler sein Pokemon wählt
-            if game_status == 'select pokemon':
-                
-                #Prüfen ob ein Pokemon angeklickt wurde
-                for i in range(len(pokemons)):
-                    if pokemons[i].get_rect().collidepoint(mouse_click):
-                        
-                        #Zuweisung Spieler- und Rivalen-Pokemon
-                        player_pokemon = pokemons[i]
-                        rival_pokemon = pokemons[(i + 1) % len(pokemons)]
-                        
-                        #Rivalen-Pokemonlevel herabsetzen um das Spiel zu vereinfachen
-                        rival_pokemon.level = int(rival_pokemon.level * .75)
-                        
-                        #Lebensbalkenposition setzen
-                        player_pokemon.hp_x = 275
-                        player_pokemon.hp_y = 250
-                        rival_pokemon.hp_x = 50
-                        rival_pokemon.hp_y = 50
-                        
-                        game_status = 'prebattle' #Kampfvorbereitung
-            
             #Wenn der Spieler an der Reihe ist
-            elif game_status == 'player turn':
-                
+            if game_status == 'player turn':
                 #Prüfen, ob Fight-Button gedrückt wurde
                 if fight_button.collidepoint(mouse_click):
                     game_status = 'player move' #Spieler greift an
                     
                 #Prüfen, ob Potion-Button gedrückt wurde
-                if potion_button.collidepoint(mouse_click):
-                    
+                elif potion_button.collidepoint(mouse_click):
                     #Falls keine Tränke mehr vorhanden sind
                     if player_pokemon.num_potions == 0:
                         display_message('No more potions left')
@@ -334,6 +398,11 @@ while game_status != 'quit': #Läuft bis der Spieler das Spiel beendet
                         display_message(f'{player_pokemon.name} used potion')
                         time.sleep(2)
                         game_status = 'rival turn' #Gegner ist am Zug
+
+                elif switch_button.collidepoint(mouse_click):
+                    player_pokemon = switch_pokemon(player_team, player_pokemon)
+                    handle_switch()
+                    game_status = 'rival turn'   
                         
             #Wenn der Spieler eine Attacke auswählt
             elif game_status == 'player move':
@@ -351,32 +420,15 @@ while game_status != 'quit': #Läuft bis der Spieler das Spiel beendet
                             game_status = 'fainted'
                         else:
                             game_status = 'rival turn'
-            
-    #Pokemon-Auswahl-Bildschirm
-    if game_status == 'select pokemon':
-        
-        game.fill(white)
-        
-        #Zeichnet Starter-Pokemons
-        bulbasaur.draw()
-        charmander.draw()
-        squirtle.draw()
-        
-        #Box um die Pokemon beim Hovern zeichnen
-        mouse_cursor = pygame.mouse.get_pos()
-        for pokemon in pokemons:
-            
-            if pokemon.get_rect().collidepoint(mouse_cursor):
-                pygame.draw.rect(game, black, pokemon.get_rect(), 2)
-        
-        pygame.display.update()
-        
+                    
     #Kampfvorbereitung
     if game_status == 'prebattle':
         
         #Pokemon zeichnen
         game.fill(white)
         player_pokemon.draw()
+        player_pokemon.draw_hp()  # HP des Spielers anzeigen
+        rival_pokemon.draw_hp()   # HP des Gegners anzeigen
         pygame.display.update()
         
         #Pokemon positionieren
@@ -448,13 +500,20 @@ while game_status != 'quit': #Läuft bis der Spieler das Spiel beendet
         player_pokemon.draw_hp()
         rival_pokemon.draw_hp()
         
-        #Button fight und use potion erstellen
-        fight_button = create_button(240, 140, 10, 350, 130, 412, 'Fight')
-        potion_button = create_button(240, 140, 250, 350, 370, 412, f'Use Potion ({player_pokemon.num_potions})')
+        # Button-Größen und Positionen anpassen
+        button_width = 150
+        button_height = 140
+        button_top = 350
 
-        #Schwarzer Rand zeichnen
+        #Button fight und use potion erstellen
+        # Button-Positionen gleichmäßig verteilen
+        fight_button = create_button(button_width, button_height, 10, button_top, 'Fight')
+        potion_button = create_button(button_width, button_height, 170, button_top, f'Use Potion ({player_pokemon.num_potions})')
+        switch_button = create_button(button_width, button_height, 340, button_top, f'Switch')
+
+        # Schwarzen Rand zeichnen (gleiche Breite wie alle Buttons zusammen)
         pygame.draw.rect(game, black, (10, 350, 480, 140), 3)
-        
+
         pygame.display.update()
         
     #Attacken-Bildschirm
@@ -476,7 +535,7 @@ while game_status != 'quit': #Läuft bis der Spieler das Spiel beendet
             top = 350 + i // 2 * button_height
             text_center_x = left + 120
             text_center_y = top + 35
-            button = create_button(button_width, button_height, left, top, text_center_x, text_center_y, move.name.capitalize())
+            button = create_button(button_width, button_height, left, top, move.name.capitalize())
             move_buttons.append(button)
             
         #Schwarze Umrandung zeichnen
@@ -509,17 +568,15 @@ while game_status != 'quit': #Läuft bis der Spieler das Spiel beendet
             
         pygame.display.update()
         
-    #Wenn eines der Pokemon besiegt wurde
+    # Wenn eines der Pokemon besiegt wurde
     if game_status == 'fainted':
-        
         alpha = 255
         while alpha > 0:
-            
             game.fill(white)
             player_pokemon.draw_hp()
             rival_pokemon.draw_hp()
             
-            #Bestimmen welches Pokemon besiegt wurde
+            # Bestimmen, welches Pokémon besiegt wurde
             if rival_pokemon.current_hp == 0:
                 player_pokemon.draw()
                 rival_pokemon.draw(alpha)
@@ -528,11 +585,44 @@ while game_status != 'quit': #Läuft bis der Spieler das Spiel beendet
                 player_pokemon.draw(alpha)
                 rival_pokemon.draw()
                 display_message(f'{player_pokemon.name} fainted!')
-            alpha -= .4
             
+            alpha -= 0.4
             pygame.display.update()
-            
-        game_status = 'gameover'
+
+        # Wechsel zum nächsten Pokémon, falls noch eines verfügbar ist
+        if rival_pokemon.current_hp == 0:
+            rival_team.pop(0)  # Besiegtes Pokémon aus der Liste entfernen
+            if rival_team:  # Prüfen, ob noch Pokémon übrig sind
+                rival_pokemon = rival_team[0]  # Nächstes Pokémon wählen
+                # Position und Größe zurücksetzen
+                rival_pokemon.x = 275
+                rival_pokemon.y = 0
+                rival_pokemon.size = 200
+                rival_pokemon.set_sprite('front')
+                rival_pokemon.reset() # HP und Tränke zurücksetzen
+                display_message(f'Rival sends out {rival_pokemon.name}!')
+                time.sleep(2)
+                game_status = 'player turn'  # Spieler ist am Zug
+            else:
+                display_message('You won the battle!')
+                game_status = 'gameover'
+        
+        elif player_pokemon.current_hp == 0:
+            player_team.pop(0)  # Besiegtes Pokémon entfernen
+            if player_team:  # Prüfen, ob noch Pokémon übrig sind
+                player_pokemon = player_team[0]  # Nächstes Pokémon wählen
+                # Position und Größe zurücksetzen
+                player_pokemon.x = 25
+                player_pokemon.y = 150
+                player_pokemon.size = 200
+                player_pokemon.set_sprite('front')
+                player_pokemon.reset()  # HP und Tränke zurücksetzen
+                display_message(f'You send out {player_pokemon.name}!')
+                time.sleep(2)
+                game_status = 'rival turn'  # Gegner ist am Zug
+            else:
+                display_message('You lost the battle!')
+                game_status = 'gameover'
         
     #Gameover Bildschirm
     if game_status == 'gameover':
