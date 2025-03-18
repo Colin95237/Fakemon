@@ -38,6 +38,9 @@ blue = (0, 0, 255)
 dark_blue = (0, 0, 139)
 light_blue = (173, 216, 230)
 
+# Globaler Zähler für Tränke des Spieler-Teams
+player_potions = 3
+
 class Move():
     #Attacke erstellen für ein Pokemon
     def __init__(self, name, power, type):
@@ -58,9 +61,6 @@ class Pokemon(pygame.sprite.Sprite):
         #Position des Pokemons auf dem Bildschirm setzen
         self.x = x
         self.y = y
-        
-        #Anzahl verfügbarer Tränke
-        self.num_potions = 3
         
         #Statuswerte setzen
         self.hp = hp
@@ -88,7 +88,6 @@ class Pokemon(pygame.sprite.Sprite):
     #Methode zum Zurücksetzen von HP und Tränken
     def reset(self):
         self.current_hp = self.max_hp  #Setzt die HP auf den Maximalwert zurück
-        self.num_potions = 3  #Setzt die Tränke auf den Anfangswert zurück
         self.is_fainted = False #Besiegt Pokemon als unbesiegt zurücksetzen
 
     #Angriff auf ein anderes Pokemon, other = das Pokemon was angegriffen wird, move = verwendete Attacke
@@ -148,17 +147,9 @@ class Pokemon(pygame.sprite.Sprite):
     
     #heilt das Pokemon
     def use_potion(self):
-        
-        #Überprüfen ob noch gehealt werden kann
-        if self.num_potions > 0:
-            #HP um 30 erhöhen
-            self.current_hp += 30
-            #HP kann nicht über das Maximale erhöht werden
-            if self.current_hp > self.max_hp:
-                self.current_hp = self.max_hp
-                
-            #Healmöglichkeiten um 1 reduzieren
-            self.num_potions -= 1
+        self.current_hp += 30
+        if self.current_hp > self.max_hp:
+            self.current_hp = self.max_hp
            
     # Methode zum Setzen des Pokémon-Sprites
     def set_sprite(self, side):
@@ -313,7 +304,8 @@ def handle_switch():
     pygame.display.update()    
 
 def initialize_teams():
-    global player_team, rival_team, player_pokemon, rival_pokemon
+    global player_team, rival_team, player_pokemon, rival_pokemon, player_potions
+    player_potions = 3 #Tränke zurücksetzen
     # Erstelle neue Pokemon-Objekte (basierend auf den ursprünglichen Werten)
     player_bulbasaur = Pokemon('Bulbasaur', 30, 'grass', 45, 49, 49, 45, bulbasaur_moves, 25, 150)
     player_charmander = Pokemon('Charmander', 30, 'fire', 39, 52, 43, 65, charmander_moves, 175, 150)
@@ -405,15 +397,16 @@ while game_status != 'quit': #Läuft bis der Spieler das Spiel beendet
                 #Prüfen, ob Potion-Button gedrückt wurde
                 elif potion_button.collidepoint(mouse_click):
                     #Falls keine Tränke mehr vorhanden sind
-                    if player_pokemon.num_potions == 0:
+                    if player_potions == 0:
                         display_message('No more potions left')
                         time.sleep(2)
-                        game_status = 'player move' #Angriff erzwingen
+                        game_status = 'player move'
                     else:
-                        player_pokemon.use_potion() #Trank verwenden
+                        player_pokemon.use_potion()
+                        player_potions -= 1  # Globale Variable reduzieren
                         display_message(f'{player_pokemon.name} used potion')
                         time.sleep(2)
-                        game_status = 'rival turn' #Gegner ist am Zug
+                        game_status = 'rival turn'
 
                 elif switch_button.collidepoint(mouse_click):
                     game_status = 'switch'
@@ -525,7 +518,7 @@ while game_status != 'quit': #Läuft bis der Spieler das Spiel beendet
         #Button fight und use potion erstellen
         # Button-Positionen gleichmäßig verteilen
         fight_button = create_button(button_width, button_height, 10, button_top, 'Fight')
-        potion_button = create_button(button_width, button_height, 170, button_top, f'Use Potion ({player_pokemon.num_potions})')
+        potion_button = create_button(button_width, button_height, 170, button_top, f'Use Potion ({player_potions})')
         switch_button = create_button(button_width, button_height, 340, button_top, f'Switch')
 
         # Schwarzen Rand zeichnen (gleiche Breite wie alle Buttons zusammen)
@@ -555,7 +548,7 @@ while game_status != 'quit': #Läuft bis der Spieler das Spiel beendet
             button = create_button(button_width, button_height, left, top, move.name.capitalize())
             move_buttons.append(button)
             
-        back_button = create_button(100, 40, 10, 460, 'Back')
+        back_button = create_button(120, 40, 190, 460, 'Back')
 
         #Schwarze Umrandung zeichnen
         pygame.draw.rect(game, black, (10, 350, 480, 140), 3)
@@ -589,33 +582,32 @@ while game_status != 'quit': #Läuft bis der Spieler das Spiel beendet
         
     # Switch-Interface: Spieler wählt das Pokémon, das er einsetzen möchte
     if game_status == 'switch':
-        game.fill(white)
-        
-        # Erstelle Buttons für alle nicht besiegten Pokémon im Spielerteam
-        switch_buttons = []
-        available = [pkm for pkm in player_team if not pkm.is_fainted and pkm != player_pokemon]
-        
-        # Button-Positionen und -Größen
-        btn_width = 200
-        btn_height = 50
-        start_x = 150
-        start_y = 100
-        spacing = 60
-
-        for index, pkm in enumerate(available):
-            btn_y = start_y + index * spacing
-            btn = create_button(btn_width, btn_height, start_x, btn_y, f"{pkm.name} (HP: {pkm.current_hp}/{pkm.max_hp})")
-            switch_buttons.append((btn, pkm))
-        
-        #Back-Button 
-        back_btn = create_button(120, 40, game_width-140, game_height-60, 'Back')
-        switch_buttons.append((back_btn, None))
-
-        pygame.display.update()
-
-        # Event-Handling
         switching = True
         while switching:
+            game.fill(white)
+            
+            # Erstelle Buttons für alle nicht besiegten Pokémon im Spielerteam
+            switch_buttons = []
+            available = [pkm for pkm in player_team if not pkm.is_fainted and pkm != player_pokemon]
+            
+            # Button-Positionen und -Größen
+            btn_width = 200
+            btn_height = 50
+            start_x = 150
+            start_y = 100
+            spacing = 60
+
+            for index, pkm in enumerate(available):
+                btn_y = start_y + index * spacing
+                btn = create_button(btn_width, btn_height, start_x, btn_y, f"{pkm.name} (HP: {pkm.current_hp}/{pkm.max_hp})")
+                switch_buttons.append((btn, pkm))
+            
+            #Back-Button 
+            back_btn = create_button(120, 40, game_width-140, game_height-60, 'Back')
+            switch_buttons.append((back_btn, None))
+
+            pygame.display.update()
+
             for event in pygame.event.get():
                 if event.type == MOUSEBUTTONDOWN:
                     pos = event.pos
@@ -624,16 +616,16 @@ while game_status != 'quit': #Läuft bis der Spieler das Spiel beendet
                             if pkm:  # Pokémon ausgewählt
                                 # Setze neues Pokémon direkt
                                 player_pokemon = pkm
-                                
+                                    
                                 # Position und Größe aktualisieren
                                 player_pokemon.x = 25
                                 player_pokemon.y = 150
                                 player_pokemon.size = 200
                                 player_pokemon.set_sprite('front')
-                                
+                                    
                                 # Rect aktualisieren
                                 player_pokemon.rect = player_pokemon.image.get_rect(topleft=(25, 150))
-                                
+                                    
                                 switching = False
                                 game_status = 'rival turn'
                                 time.sleep(0.5)
